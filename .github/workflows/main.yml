@@ -35,7 +35,7 @@ jobs:
           Remove-Item C:\secpol.cfg -Force
 
           $username = "runneradmin"
-          $password = 'Mtass$721'
+          $password = "1"
           
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
           Set-LocalUser -Name $username -Password $securePass
@@ -43,6 +43,14 @@ jobs:
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username -ErrorAction SilentlyContinue
           
           echo "RDP_CREDS=User: $username | Password: $password" >> $env:GITHUB_ENV
+
+      - name: Apply Anti-Sleep Settings
+        run: |
+          powercfg -change -monitor-timeout-ac 0
+          powercfg -change -monitor-timeout-dc 0
+          powercfg -change -standby-timeout-ac 0
+          powercfg -change -standby-timeout-dc 0
+          powercfg -h off
 
       - name: Install Browser Extensions
         run: |
@@ -63,8 +71,7 @@ jobs:
           $rarPath = "$desktopPath\ahmad.rar"
           $extractPath = "$desktopPath\ahmad_extracted"
           
-          # نیا گوگل ڈرائیو لنک ڈائریکٹ ڈاؤن لوڈ فارمیٹ میں
-          $directUrl = "https://drive.usercontent.google.com/download?id=1vhj1T94IFssFmckNgifW-gBJNci4Rc53&export=download&authuser=0"
+          $directUrl = "https://drive.usercontent.google.com/download?id=1L4T-6L0j6AEsJYzvsXl14C7Q1Gp4c51a&export=download&authuser=0"
           
           Write-Host "Downloading Macro Recorder..."
           Invoke-WebRequest -Uri $directUrl -OutFile $rarPath
@@ -84,9 +91,6 @@ jobs:
           New-ItemProperty -Path $regPath -Name "Email" -Value "1" -PropertyType String -Force | Out-Null
           New-ItemProperty -Path $regPath -Name "Code" -Value $serialKey -PropertyType String -Force | Out-Null
 
-          # ---------------------------------------------------------
-          # AnyDesk کو ڈاؤن لوڈ اور C:\AnyDesk میں انسٹال کرنا تاکہ Space کا مسئلہ نہ آئے
-          # ---------------------------------------------------------
           Write-Host "Downloading and Installing AnyDesk..."
           $anydeskUrl = "https://download.anydesk.com/AnyDesk.exe"
           $anydeskPath = "$env:TEMP\AnyDesk.exe"
@@ -98,12 +102,50 @@ jobs:
           Start-Sleep -Seconds 10
           
           Write-Host "Setting AnyDesk Password for Unattended Access..."
-          # AnyDesk کا نیا پاسورڈ
-          cmd.exe /c 'echo Mtass$721 | C:\AnyDesk\AnyDesk.exe --set-password'
+          cmd.exe /c "echo 1233aassA@ | C:\AnyDesk\AnyDesk.exe --set-password"
           
           Write-Host "Getting AnyDesk ID..."
           $anydeskId = cmd.exe /c "C:\AnyDesk\AnyDesk.exe --get-id"
           echo "ANYDESK_ID=$anydeskId" >> $env:GITHUB_ENV
+
+      - name: Install Anti-Detect Browsers from Google Drive
+        shell: pwsh
+        run: |
+          $desktopPath = "C:\Users\Public\Desktop"
+          $browsersRarPath = "$desktopPath\browsers.rar"
+          $browsersExtractPath = "$desktopPath\browsers_extracted"
+          
+          Write-Host "Installing gdown (Python tool for large Google Drive files)..."
+          python -m pip install gdown
+          
+          Write-Host "Downloading Large Browsers RAR bypassing virus scan warning..."
+          python -m gdown "1GNqmqUON9SDVC7id2Zn9VIp2GFCr-LtE" -O "$browsersRarPath"
+          
+          Write-Host "Extracting Browsers..."
+          if (Test-Path $browsersRarPath) { 
+              & "C:\Program Files\7-Zip\7z.exe" x $browsersRarPath -o"$browsersExtractPath" -y 
+          }
+          
+          Write-Host "Installing AdsPower..."
+          $adsPowerPath = "$browsersExtractPath\AdsPowerSetup.exe" 
+          if (Test-Path $adsPowerPath) {
+              Start-Process -FilePath $adsPowerPath -ArgumentList "/S", "/quiet" -Wait
+              Write-Host "AdsPower Installed successfully."
+          } else {
+              Write-Host "AdsPowerSetup.exe not found in RAR!"
+          }
+
+          Write-Host "Setting up BitBrowser..."
+          $bitBrowserPath = "$browsersExtractPath\BitBrowserSetup.exe" 
+          if (Test-Path $bitBrowserPath) {
+              Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$bitBrowserPath`" /S" -Wait
+              
+              Copy-Item -Path $bitBrowserPath -Destination "C:\Users\Public\Desktop\BitBrowser_Setup_Install_Me.exe" -Force
+              
+              Write-Host "BitBrowser Setup placed on Desktop."
+          } else {
+              Write-Host "BitBrowserSetup.exe not found in RAR!"
+          }
 
       - name: Install Tailscale
         run: |
@@ -131,15 +173,30 @@ jobs:
           $testResult = Test-NetConnection -ComputerName $env:TAILSCALE_IP -Port 3389
           if (-not $testResult.TcpTestSucceeded) { Write-Error "TCP connection failed"; exit 1 }
 
+      - name: Send Details to Discord
+        shell: pwsh
+        run: |
+          $webhookUrl = "https://discord.com/api/webhooks/1568094406475645029/rl2bF7NQStf79NXvlRwBed1IXhnVYwNM_0Pc8elqq26Ec2lYsFT3JJ-iRJniW5CZm121"
+          
+          $msg = "**✅ RDP is Ready!**`n`n"
+          $msg += "**🌐 Tailscale IP:** $env:TAILSCALE_IP`n"
+          $msg += "**👤 RDP Username:** runneradmin`n"
+          $msg += "**🔑 RDP Password:** 1`n`n"
+          $msg += "**🖥️ AnyDesk ID:** $env:ANYDESK_ID`n"
+          $msg += "**🔑 AnyDesk Pass:** 1233aassA@"
+          
+          $payload = @{ content = $msg } | ConvertTo-Json
+          Invoke-RestMethod -Uri $webhookUrl -Method Post -ContentType "application/json" -Body $payload
+
       - name: Maintain Connection
         run: |
           Write-Host "`n=== CONNECTION INFO ==="
           Write-Host "RDP Address: $env:TAILSCALE_IP"
           Write-Host "RDP Username: runneradmin"
-          Write-Host 'RDP Password: Mtass$721'
+          Write-Host "RDP Password: 1"
           Write-Host "-----------------------"
           Write-Host "AnyDesk ID: $env:ANYDESK_ID"
-          Write-Host 'AnyDesk Pass: Mtass$721'
+          Write-Host "AnyDesk Pass: 1233aassA@"
           Write-Host "=======================`n"
           
           for ($i = 0; $i -lt 71; $i++) {
