@@ -90,7 +90,7 @@ jobs:
               Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/quiet", "/NORESTART" -Wait
           }
 
-          Write-Host "Registering Macro Recorder with exact Modifiers (Mod = 0)..."
+          Write-Host "Registering Macro Recorder with updated Keys (113 and 112)..."
           $regPath = "HKCU:\SOFTWARE\Jitbit\Macro Recorder"
           if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
           
@@ -98,12 +98,15 @@ jobs:
           New-ItemProperty -Path $regPath -Name "Email" -Value "1" -PropertyType String -Force | Out-Null
           New-ItemProperty -Path $regPath -Name "Code" -Value $serialKey -PropertyType String -Force | Out-Null
           
-          New-ItemProperty -Path $regPath -Name "AbortPlayKey" -Value 71 -PropertyType DWORD -Force | Out-Null
+          # AbortPlayKey کو 113 کر دیا گیا ہے
+          New-ItemProperty -Path $regPath -Name "AbortPlayKey" -Value 113 -PropertyType DWORD -Force | Out-Null
           New-ItemProperty -Path $regPath -Name "AbortPlayKeyMod" -Value 0 -PropertyType DWORD -Force | Out-Null
           
-          New-ItemProperty -Path $regPath -Name "PausePlayKey" -Value 70 -PropertyType DWORD -Force | Out-Null
+          # PausePlayKey کو 112 کر دیا گیا ہے
+          New-ItemProperty -Path $regPath -Name "PausePlayKey" -Value 112 -PropertyType DWORD -Force | Out-Null
           New-ItemProperty -Path $regPath -Name "PausePlayKeyMod" -Value 0 -PropertyType DWORD -Force | Out-Null
           
+          # پلے بیک کاؤنٹ (انفینائٹ لوپ کے لیے 0)
           New-ItemProperty -Path $regPath -Name "NumberOfPlaybacks" -Value 0 -PropertyType DWORD -Force | Out-Null
 
           Write-Host "Moving 'gg in.mcr' file to Desktop..."
