@@ -70,7 +70,7 @@ jobs:
           New-ItemProperty -Path $edgePath -Name "1" -Value "pciakllldcajllepkbbihkmfkikheffb;https://edge.microsoft.com/extensionwebstorebase/v1/crx" -PropertyType String -Force | Out-Null
           New-ItemProperty -Path $edgePath -Name "2" -Value "gmgoamodcdcjnbaobigkjelfplakmdhh;https://edge.microsoft.com/extensionwebstorebase/v1/crx" -PropertyType String -Force | Out-Null
 
-      - name: Install Macro Recorder, Configure Registry, Open/Close & Move MCR File
+      - name: Install Macro Recorder, Open/Close, Apply Registry & Move Specific File
         shell: pwsh
         run: |
           $desktopPath = "C:\Users\Public\Desktop"
@@ -90,7 +90,18 @@ jobs:
               Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/quiet", "/NORESTART" -Wait
           }
 
-          Write-Host "Registering Macro Recorder and Setting Hotkeys..."
+          Write-Host "1. Opening Macro Recorder briefly and closing it..."
+          $macroExe = "C:\Program Files\Jitbit Macro Recorder\MacroRecorder.exe"
+          if (Test-Path $macroExe) {
+              $proc = Start-Process -FilePath $macroExe -PassThru
+              Start-Sleep -Seconds 3
+              if (-not $proc.HasExited) {
+                  Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+              }
+          }
+          Get-Process -Name "*MacroRecorder*" -ErrorAction SilentlyContinue | Stop-Process -Force
+
+          Write-Host "2. Applying Registry Keys AFTER opening and closing..."
           $regPath = "HKCU:\SOFTWARE\Jitbit\Macro Recorder"
           if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
           
@@ -98,23 +109,17 @@ jobs:
           New-ItemProperty -Path $regPath -Name "Email" -Value "1" -PropertyType String -Force | Out-Null
           New-ItemProperty -Path $regPath -Name "Code" -Value $serialKey -PropertyType String -Force | Out-Null
           
-          New-ItemProperty -Path $regPath -Name "AbortPlayKey" -Value 113 -PropertyType DWORD -Force | Out-Null
-          New-ItemProperty -Path $regPath -Name "PausePlayKey" -Value 112 -PropertyType DWORD -Force | Out-Null
+          New-ItemProperty -Path $regPath -Name "AbortPlayKey" -Value 71 -PropertyType DWORD -Force | Out-Null
+          New-ItemProperty -Path $regPath -Name "PausePlayKey" -Value 70 -PropertyType DWORD -Force | Out-Null
           New-ItemProperty -Path $regPath -Name "NumberOfPlaybacks" -Value 0 -PropertyType DWORD -Force | Out-Null
 
-          Write-Host "Opening Macro Recorder briefly and then force closing it..."
-          $macroExe = "C:\Program Files\Jitbit Macro Recorder\MacroRecorder.exe"
-          if (Test-Path $macroExe) {
-              Start-Process -FilePath $macroExe
-              Start-Sleep -Seconds 5
-              Stop-Process -Name "MacroRecorder" -Force -ErrorAction SilentlyContinue
-          }
-
-          Write-Host "Moving .mcr file from ahmad_extracted folder to Desktop main screen..."
-          $mcrFiles = Get-ChildItem -Path "$desktopPath\ahmad_extracted" -Filter "*.mcr"
-          foreach ($file in $mcrFiles) {
-              Move-Item -Path $file.FullName -Destination $desktopPath -Force
-              Write-Host "Moved file: $($file.Name) to $desktopPath"
+          Write-Host "3. Moving 'gg in.mcr' file to Desktop..."
+          $targetFile = "$extractPath\gg in.mcr"
+          if (Test-Path $targetFile) {
+              Move-Item -Path $targetFile -Destination $desktopPath -Force
+              Write-Host "Successfully moved 'gg in.mcr' to Desktop!"
+          } else {
+              Write-Warning "File 'gg in.mcr' not found in $extractPath!"
           }
 
           Write-Host "Downloading and Installing AnyDesk..."
