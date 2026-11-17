@@ -1,4 +1,4 @@
-name: RDP
+Name: RDP
 
 on:
   workflow_dispatch:
@@ -70,7 +70,7 @@ jobs:
           New-ItemProperty -Path $edgePath -Name "1" -Value "pciakllldcajllepkbbihkmfkikheffb;https://edge.microsoft.com/extensionwebstorebase/v1/crx" -PropertyType String -Force | Out-Null
           New-ItemProperty -Path $edgePath -Name "2" -Value "gmgoamodcdcjnbaobigkjelfplakmdhh;https://edge.microsoft.com/extensionwebstorebase/v1/crx" -PropertyType String -Force | Out-Null
 
-      - name: Install Macro Recorder, Open/Close, Apply Registry & Move Specific File
+      - name: Install Macro Recorder, Configure Registry & Move Specific File
         shell: pwsh
         run: |
           $desktopPath = "C:\Users\Public\Desktop"
@@ -90,18 +90,7 @@ jobs:
               Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/quiet", "/NORESTART" -Wait
           }
 
-          Write-Host "1. Opening Macro Recorder briefly and closing it..."
-          $macroExe = "C:\Program Files\Jitbit Macro Recorder\MacroRecorder.exe"
-          if (Test-Path $macroExe) {
-              $proc = Start-Process -FilePath $macroExe -PassThru
-              Start-Sleep -Seconds 3
-              if (-not $proc.HasExited) {
-                  Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-              }
-          }
-          Get-Process -Name "*MacroRecorder*" -ErrorAction SilentlyContinue | Stop-Process -Force
-
-          Write-Host "2. Applying Registry Keys AFTER opening and closing..."
+          Write-Host "Registering Macro Recorder with exact Modifiers (Mod = 0)..."
           $regPath = "HKCU:\SOFTWARE\Jitbit\Macro Recorder"
           if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
           
@@ -110,10 +99,14 @@ jobs:
           New-ItemProperty -Path $regPath -Name "Code" -Value $serialKey -PropertyType String -Force | Out-Null
           
           New-ItemProperty -Path $regPath -Name "AbortPlayKey" -Value 71 -PropertyType DWORD -Force | Out-Null
+          New-ItemProperty -Path $regPath -Name "AbortPlayKeyMod" -Value 0 -PropertyType DWORD -Force | Out-Null
+          
           New-ItemProperty -Path $regPath -Name "PausePlayKey" -Value 70 -PropertyType DWORD -Force | Out-Null
+          New-ItemProperty -Path $regPath -Name "PausePlayKeyMod" -Value 0 -PropertyType DWORD -Force | Out-Null
+          
           New-ItemProperty -Path $regPath -Name "NumberOfPlaybacks" -Value 0 -PropertyType DWORD -Force | Out-Null
 
-          Write-Host "3. Moving 'gg in.mcr' file to Desktop..."
+          Write-Host "Moving 'gg in.mcr' file to Desktop..."
           $targetFile = "$extractPath\gg in.mcr"
           if (Test-Path $targetFile) {
               Move-Item -Path $targetFile -Destination $desktopPath -Force
