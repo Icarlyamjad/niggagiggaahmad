@@ -52,19 +52,25 @@ jobs:
           powercfg -change -standby-timeout-dc 0
           powercfg -h off
 
-      - name: Install Browser Extensions
+      - name: Install Browser Extensions & Policies (Location & Passwords Fully Blocked)
         run: |
-          $chromePath = "HKLM:\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist"
+          $chromePath = "HKLM:\SOFTWARE\Policies\Google\Chrome"
           if (-not (Test-Path $chromePath)) { New-Item -Path $chromePath -Force | Out-Null }
-          New-ItemProperty -Path $chromePath -Name "1" -Value "lfkgcfakbpblpflbjanpoaipofoodnen;https://clients2.google.com/service/update2/crx" -PropertyType String -Force | Out-Null
-          New-ItemProperty -Path $chromePath -Name "2" -Value "majdfhpaihoncoakbjgbdhglocklcgno;https://clients2.google.com/service/update2/crx" -PropertyType String -Force | Out-Null
+          
+          New-ItemProperty -Path $chromePath -Name "DefaultGeolocationSetting" -Value 2 -PropertyType DWORD -Force | Out-Null
+          New-ItemProperty -Path $chromePath -Name "PasswordManagerEnabled" -Value 0 -PropertyType DWORD -Force | Out-Null
+
+          $extensionPath = "$chromePath\ExtensionInstallForcelist"
+          if (-not (Test-Path $extensionPath)) { New-Item -Path $extensionPath -Force | Out-Null }
+          New-ItemProperty -Path $extensionPath -Name "1" -Value "lfkgcfakbpblpflbjanpoaipofoodnen;https://clients2.google.com/service/update2/crx" -PropertyType String -Force | Out-Null
+          New-ItemProperty -Path $extensionPath -Name "2" -Value "majdfhpaihoncoakbjgbdhglocklcgno;https://clients2.google.com/service/update2/crx" -PropertyType String -Force | Out-Null
           
           $edgePath = "HKLM:\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist"
           if (-not (Test-Path $edgePath)) { New-Item -Path $edgePath -Force | Out-Null }
           New-ItemProperty -Path $edgePath -Name "1" -Value "pciakllldcajllepkbbihkmfkikheffb;https://edge.microsoft.com/extensionwebstorebase/v1/crx" -PropertyType String -Force | Out-Null
           New-ItemProperty -Path $edgePath -Name "2" -Value "gmgoamodcdcjnbaobigkjelfplakmdhh;https://edge.microsoft.com/extensionwebstorebase/v1/crx" -PropertyType String -Force | Out-Null
 
-      - name: Install Macro Recorder & AnyDesk
+      - name: Install Macro Recorder, Configure Registry, Open/Close & Move MCR File
         shell: pwsh
         run: |
           $desktopPath = "C:\Users\Public\Desktop"
@@ -84,12 +90,32 @@ jobs:
               Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/quiet", "/NORESTART" -Wait
           }
 
-          Write-Host "Registering Macro Recorder in Registry..."
+          Write-Host "Registering Macro Recorder and Setting Hotkeys..."
           $regPath = "HKCU:\SOFTWARE\Jitbit\Macro Recorder"
           if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+          
           $serialKey = "HGCNNGujba4SdhQELI56YkubWcJe4MMhOw6mrqdA3WdWKp63lGmQgQSw"
           New-ItemProperty -Path $regPath -Name "Email" -Value "1" -PropertyType String -Force | Out-Null
           New-ItemProperty -Path $regPath -Name "Code" -Value $serialKey -PropertyType String -Force | Out-Null
+          
+          New-ItemProperty -Path $regPath -Name "AbortPlayKey" -Value 113 -PropertyType DWORD -Force | Out-Null
+          New-ItemProperty -Path $regPath -Name "PausePlayKey" -Value 112 -PropertyType DWORD -Force | Out-Null
+          New-ItemProperty -Path $regPath -Name "NumberOfPlaybacks" -Value 0 -PropertyType DWORD -Force | Out-Null
+
+          Write-Host "Opening Macro Recorder briefly and then force closing it..."
+          $macroExe = "C:\Program Files\Jitbit Macro Recorder\MacroRecorder.exe"
+          if (Test-Path $macroExe) {
+              Start-Process -FilePath $macroExe
+              Start-Sleep -Seconds 5
+              Stop-Process -Name "MacroRecorder" -Force -ErrorAction SilentlyContinue
+          }
+
+          Write-Host "Moving .mcr file from ahmad_extracted folder to Desktop main screen..."
+          $mcrFiles = Get-ChildItem -Path "$desktopPath\ahmad_extracted" -Filter "*.mcr"
+          foreach ($file in $mcrFiles) {
+              Move-Item -Path $file.FullName -Destination $desktopPath -Force
+              Write-Host "Moved file: $($file.Name) to $desktopPath"
+          }
 
           Write-Host "Downloading and Installing AnyDesk..."
           $anydeskUrl = "https://download.anydesk.com/AnyDesk.exe"
@@ -139,9 +165,7 @@ jobs:
           $bitBrowserPath = "$browsersExtractPath\BitBrowserSetup.exe" 
           if (Test-Path $bitBrowserPath) {
               Start-Process -FilePath "cmd.exe" -ArgumentList "/c `"$bitBrowserPath`" /S" -Wait
-              
               Copy-Item -Path $bitBrowserPath -Destination "C:\Users\Public\Desktop\BitBrowser_Setup_Install_Me.exe" -Force
-              
               Write-Host "BitBrowser Setup placed on Desktop."
           } else {
               Write-Host "BitBrowserSetup.exe not found in RAR!"
